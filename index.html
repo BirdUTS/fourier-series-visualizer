@@ -10,19 +10,67 @@
 <body>
   <header class="app-header">
     <h1>FFT <span class="spark">魔法</span></h1>
-    <p class="tagline">用你部電話，親手感受傅立葉變換嘅神奇</p>
+    <p class="tagline">由零開始，一步步睇傅立葉變換點運作</p>
   </header>
 
   <nav class="tabs" role="tablist">
-    <button type="button" class="tab is-active" data-tab="mic" role="tab">🎤 聲音頻譜</button>
-    <button type="button" class="tab" data-tab="draw" role="tab">✍️ 畫圖向量</button>
-    <button type="button" class="tab" data-tab="wave" role="tab">🎵 方波合成</button>
+    <button type="button" class="tab is-active" data-tab="blocks" role="tab">🧱 積木</button>
+    <button type="button" class="tab" data-tab="mic" role="tab">🎤 聲音</button>
+    <button type="button" class="tab" data-tab="draw" role="tab">✍️ 畫圖</button>
+    <button type="button" class="tab" data-tab="wave" role="tab">🎵 方波</button>
   </nav>
 
   <main>
-    <!-- ============ MIC SPECTRUM ============ -->
-    <section class="panel is-active" id="panel-mic">
-      <p class="hint">撳「開始」後對住咪 <b>哼歌</b> 或 <b>吹口哨</b>，睇下你把聲拆成幾多個頻率。</p>
+    <!-- ============ FREQUENCY BUILDING BLOCKS ============ -->
+    <section class="panel is-active" id="panel-blocks">
+      <p class="hint">最緊要嘅一課：<b>任何波 = 一堆正弦波加埋一齊</b>。上面睇波形，下面睇頻譜，佢哋係同一件事嘅兩面。</p>
+
+      <div class="guide" data-guide="blocks">
+        <div class="guide-head">🧭 教學步驟 <span class="guide-count"></span></div>
+        <p class="guide-text"></p>
+        <div class="guide-nav">
+          <button type="button" class="btn guide-prev">◀ 上一步</button>
+          <button type="button" class="btn guide-next">下一步 ▶</button>
+        </div>
+      </div>
+
+      <div class="dual">
+        <div class="canvas-wrap short"><canvas id="blkTime"></canvas><span class="cv-label">時域 · 波形</span></div>
+        <div class="canvas-wrap short"><canvas id="blkFreq"></canvas><span class="cv-label">頻域 · 頻譜（FFT 讀到嘅）</span></div>
+      </div>
+
+      <div id="blkComps" class="comps"></div>
+      <div class="controls">
+        <button type="button" id="blkAdd" class="btn">➕ 加一個正弦波</button>
+        <button type="button" id="blkPlay" class="btn primary">▶ 聽呢個波</button>
+      </div>
+
+      <details class="math-card" open>
+        <summary>📐 背後嘅數學</summary>
+        <div class="formula">
+          <i>f</i>(<i>t</i>) <span class="op">=</span>
+          <span class="sum">Σ</span><sub><i>k</i></sub>
+          &nbsp;A<sub><i>k</i></sub> · sin(2π <i>f</i><sub><i>k</i></sub> <i>t</i>)
+        </div>
+        <p>你而家做緊「合成」：揀幾個頻率 <i>f<sub>k</sub></i>、各自畀個振幅 <i>A<sub>k</sub></i>，加埋就成個波。</p>
+        <p><b>FFT 做相反嘅嘢</b>：俾佢左邊個波形，佢幫你還原返右邊嗰幾條柱（邊啲頻率、各幾大力）。</p>
+        <div class="live" id="blkMath"></div>
+      </details>
+    </section>
+
+    <!-- ============ MIC SPECTRUM + FILTER ============ -->
+    <section class="panel" id="panel-mic">
+      <p class="hint">而家用真實聲音：對住咪 <b>哼歌</b> 或 <b>吹口哨</b>，FFT 即時拆出你把聲含有邊啲頻率。</p>
+
+      <div class="guide" data-guide="mic">
+        <div class="guide-head">🧭 教學步驟 <span class="guide-count"></span></div>
+        <p class="guide-text"></p>
+        <div class="guide-nav">
+          <button type="button" class="btn guide-prev">◀ 上一步</button>
+          <button type="button" class="btn guide-next">下一步 ▶</button>
+        </div>
+      </div>
+
       <div class="canvas-wrap">
         <canvas id="micCanvas"></canvas>
       </div>
@@ -33,7 +81,14 @@
       <div class="controls">
         <button type="button" id="micToggle" class="btn primary">開始聆聽</button>
       </div>
-      <p class="note-small" id="micStatus"></p>
+      <div class="seg" id="micFilterSeg">
+        <span class="seg-label">濾波：</span>
+        <button type="button" class="seg-btn is-on" data-filter="none">關</button>
+        <button type="button" class="seg-btn" data-filter="lowpass">低通</button>
+        <button type="button" class="seg-btn" data-filter="highpass">高通</button>
+        <button type="button" id="micListen" class="seg-btn">🎧 試聽</button>
+      </div>
+      <p class="note-small" id="micStatus">開咗濾波後，喺頻譜上左右拖手指可以調 cutoff，睇住某段頻率被切走。</p>
 
       <details class="math-card" open>
         <summary>📐 背後嘅數學</summary>
@@ -42,16 +97,25 @@
           <span class="sum">Σ</span><sub><i>n</i>=0</sub><sup><i>N</i>−1</sup>
           &nbsp;x[<i>n</i>] · e<sup>−i 2π<i>kn</i>/<i>N</i></sup>
         </div>
-        <p><b>離散傅立葉變換 (DFT)</b> 將一段「時間 → 振幅」嘅聲波，轉成「頻率 → 強度」。
-        式中每個 <b>e<sup>−i2πkn/N</sup></b> 係一個轉緊嘅單位向量；同你把聲越夾得啱，總和 X[<i>k</i>] 就越大。</p>
-        <p>第 <i>k</i> 條 bin 對應頻率 <b><i>k</i> · f<sub>s</sub> / N</b>。FFT 只係超快版嘅 DFT（O(N log N)）。</p>
+        <p><b>離散傅立葉變換 (DFT)</b> 將「時間 → 振幅」嘅聲波，轉成「頻率 → 強度」。第 <i>k</i> 條 bin 對應頻率 <b><i>k</i>·f<sub>s</sub>/N</b>。FFT 係超快版嘅 DFT。</p>
+        <p>濾波 = 喺頻域剪走某段頻率，再轉返做聲。剪走高頻 → 把聲變鈍；剪走低頻 → 變單薄。</p>
         <div class="live" id="micMath">撳「開始聆聽」就會見到實時數值。</div>
       </details>
     </section>
 
     <!-- ============ DRAW & EPICYCLES ============ -->
     <section class="panel" id="panel-draw">
-      <p class="hint">用手指喺下面 <b>畫一個形狀</b>（例如一隻貓、個名字、心心），FFT 會用一堆旋轉圓圈砌返出嚟。</p>
+      <p class="hint">用手指 <b>畫一個形狀</b>，FFT 會將佢拆成一堆旋轉向量（每個係一個頻率）。可以 <b>逐個加</b>，睇住個圖砌出嚟。</p>
+
+      <div class="guide" data-guide="draw">
+        <div class="guide-head">🧭 教學步驟 <span class="guide-count"></span></div>
+        <p class="guide-text"></p>
+        <div class="guide-nav">
+          <button type="button" class="btn guide-prev">◀ 上一步</button>
+          <button type="button" class="btn guide-next">下一步 ▶</button>
+        </div>
+      </div>
+
       <div class="canvas-wrap">
         <canvas id="drawCanvas"></canvas>
       </div>
@@ -59,9 +123,13 @@
         <button type="button" id="drawClear" class="btn">清除重畫</button>
         <button type="button" id="drawPlay" class="btn primary" disabled>播放重建</button>
       </div>
+      <div class="controls" id="drawStepRow">
+        <button type="button" id="drawStepDown" class="btn" disabled>➖ 少一個向量</button>
+        <button type="button" id="drawStepUp" class="btn" disabled>➕ 多一個向量</button>
+      </div>
       <label class="slider-row">
-        <span>向量數量 <b id="termsVal">128</b></span>
-        <input type="range" id="termsSlider" min="1" max="256" value="128">
+        <span>向量數量 <b id="termsVal">1</b></span>
+        <input type="range" id="termsSlider" min="1" max="256" value="1">
       </label>
       <p class="note-small">向量越多，重建越似原圖。</p>
 
@@ -72,17 +140,24 @@
           <span class="sum">Σ</span><sub><i>k</i></sub>
           &nbsp;c<sub><i>k</i></sub> · e<sup>i (<i>k t</i> + φ<sub><i>k</i></sub>)</sup>
         </div>
-        <p>將你畫嘅路徑當成複數 <b><i>z</i> = x + i y</b>，做 DFT 得到一堆係數 c<sub><i>k</i></sub>。
-        <b>每個係數 = 一個旋轉向量</b>：</p>
-        <p>· 半徑 = <b>|c<sub>k</sub>|</b>（振幅）&nbsp;·&nbsp; 轉速 = <b><i>k</i></b>（頻率）&nbsp;·&nbsp; 起始角 = <b>φ<sub>k</sub></b>（相位）</p>
-        <p>將啲向量首尾相接、一齊轉，筆尖嘅軌跡就重畫返你嘅圖。保留振幅最大嗰幾個就已經好似。</p>
+        <p>將路徑當成複數 <b><i>z</i> = x + i y</b> 做 DFT，每個係數 c<sub><i>k</i></sub> 就係一個旋轉向量：半徑 <b>|c<sub>k</sub>|</b>、轉速 <b><i>k</i></b>、起始角 <b>φ<sub>k</sub></b>。</p>
         <div class="live" id="drawMath">畫完一個形狀就會見到分解結果。</div>
       </details>
     </section>
 
     <!-- ============ SQUARE WAVE SYNTH ============ -->
     <section class="panel" id="panel-wave">
-      <p class="hint">一個 <b>方波</b> 其實係好多個正弦波疊埋一齊。拖 slider 逐個加，仲可以 <b>撳嚟聽</b>。</p>
+      <p class="hint">一個 <b>方波</b> 其實係好多個正弦波疊埋。拖 slider 逐個加，仲可以 <b>撳嚟聽</b>。</p>
+
+      <div class="guide" data-guide="wave">
+        <div class="guide-head">🧭 教學步驟 <span class="guide-count"></span></div>
+        <p class="guide-text"></p>
+        <div class="guide-nav">
+          <button type="button" class="btn guide-prev">◀ 上一步</button>
+          <button type="button" class="btn guide-next">下一步 ▶</button>
+        </div>
+      </div>
+
       <div class="canvas-wrap short">
         <canvas id="waveCanvas"></canvas>
       </div>
@@ -103,17 +178,14 @@
           <span class="sum">Σ</span><sub><i>k</i>=1,3,5…</sub>
           <span class="frac"><span class="num">sin(<i>k x</i>)</span><span class="den"><i>k</i></span></span>
         </div>
-        <p>呢個係方波嘅 <b>傅立葉級數</b>。重點兩個：</p>
-        <p>① <b>只有奇次諧波</b>（k = 1, 3, 5…），偶次完全消失。<br>
-        ② 振幅按 <b>1/k</b> 遞減，所以高頻越來越細。</p>
-        <p>加無限多項就係完美方波；轉角位嘅小波動叫 <b>Gibbs 現象</b>，永遠唔會完全消失。</p>
+        <p>方波嘅傅立葉級數：<b>只有奇次諧波</b>，振幅按 <b>1/k</b> 遞減。加無限多項就係完美方波；轉角嘅小波動叫 <b>Gibbs 現象</b>。</p>
         <div class="live" id="waveMath"></div>
       </details>
     </section>
   </main>
 
   <footer class="app-footer">
-    <p>純前端展示 · 無需安裝 · 數據唔會離開你部電話</p>
+    <p>純前端教學 · 無需安裝 · 數據唔會離開你部電話</p>
   </footer>
 
   <script src="app.js"></script>
